@@ -1,175 +1,252 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#3880AF">
+  <meta name="theme-color" content="#dceefa">
   <title>StartPhase</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
     <aside class="sidebar">
-      <div class="sidebar-brand">
+      <a class="brand" href="#" aria-label="StartPhase home" data-mode="home">
         <img src="startphase-logo.png" alt="StartPhase">
-      </div>
+      </a>
 
-      <nav class="nav">
-        <a href="https://www.youtube.com/" target="_blank" rel="noopener">YouTube</a>
-        <a href="https://discord.com/app" target="_blank" rel="noopener">Discord</a>
-        <a href="https://www.google.com/" target="_blank" rel="noopener">Google</a>
-        <a href="https://duckduckgo.com/" target="_blank" rel="noopener">DDG</a>
-        <a href="https://www.roblox.com/" target="_blank" rel="noopener">Roblox ↗</a>
+      <nav class="nav" aria-label="Main navigation">
+        <button class="nav-button active" data-mode="home" aria-label="StartPhase" title="StartPhase">
+          <span class="nav-icon" data-icon="house"></span>
+        </button>
+        <button class="nav-button" data-mode="roblox" aria-label="Roblox mode" title="Roblox">
+          <span class="nav-icon" data-icon="gamepad-2"></span>
+        </button>
+        <button class="nav-button" data-action="widgets" aria-label="Add widgets" title="Add widgets">
+          <span class="nav-icon" data-icon="layout-grid"></span>
+        </button>
+        <button class="nav-button" data-action="settings" aria-label="Settings" title="Settings">
+          <span class="nav-icon" data-icon="settings"></span>
+        </button>
       </nav>
 
-      <button class="mode-toggle" id="modeToggle" type="button" aria-pressed="false">
-        <span id="toggleIcon">🎮</span>
-        <span id="toggleText">Roblox Mode</span>
-      </button>
+      <div class="sidebar-bottom">
+        <button class="nav-button" data-action="about" aria-label="About StartPhase" title="About">
+          <span class="nav-icon" data-icon="info"></span>
+        </button>
+      </div>
     </aside>
 
-    <section class="content" id="startPage">
-      <img class="hero-logo" src="startphase-logo.png" alt="StartPhase">
-
-      <form class="search" id="searchForm">
-        <input
-          id="searchInput"
-          type="search"
-          placeholder="Search the web..."
-          aria-label="Search the web"
-          autocomplete="off"
-        >
-      </form>
-
-      <div class="powered">Powered by DuckDuckGo.</div>
-
-      <div class="home-footer">
-        <span>Your browser. Your space.</span>
-        <button class="text-button" id="homeRobloxButton" type="button">Open Roblox Dashboard →</button>
-      </div>
-    </section>
-
-    <section class="roblox-page" id="robloxPage" hidden>
-      <header class="dashboard-header">
+    <section class="workspace">
+      <header class="topbar">
         <div>
-          <p class="eyebrow">YOUR GAMING SPACE</p>
-          <h1>Roblox <span>Dashboard</span></h1>
-          <p class="subtitle">Discover your next adventure.</p>
+          <p class="eyebrow" id="modeLabel">YOUR SPACE</p>
+          <h1 id="pageTitle">StartPhase</h1>
         </div>
-        <a class="profile-button" href="https://www.roblox.com/" target="_blank" rel="noopener">Open Roblox ↗</a>
+        <div class="clock">
+          <span id="clockTime">00:00</span>
+          <span id="clockDate">Loading date...</span>
+        </div>
       </header>
 
-      <form class="game-search" id="gameSearchForm">
-        <span aria-hidden="true">⌕</span>
-        <input
-          id="gameSearchInput"
-          type="search"
-          placeholder="Search Roblox experiences..."
-          aria-label="Search Roblox experiences"
-          autocomplete="off"
-        >
-        <button type="submit">Search</button>
-      </form>
+      <section class="mode-view active" id="homeView">
+        <form class="search" id="webSearch">
+          <span data-icon="search"></span>
+          <input id="webQuery" type="search" placeholder="Search the web..." aria-label="Search the web" autocomplete="off">
+          <button type="submit" aria-label="Submit web search">
+            <span data-icon="arrow-up-right"></span>
+          </button>
+        </form>
 
-      <section class="welcome-panel">
-        <div class="welcome-copy">
-          <p class="eyebrow">WELCOME TO STARTPHASE</p>
-          <h2>Your next adventure starts here.</h2>
-          <p>Explore experiences, find something new, and jump into Roblox.</p>
-          <a class="primary-button" href="https://www.roblox.com/games" target="_blank" rel="noopener">Explore Roblox</a>
-        </div>
-        <div class="welcome-symbol" aria-hidden="true">R</div>
-      </section>
-
-      <section class="dashboard-section">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">PICK YOUR NEXT GAME</p>
-            <h2>Quick discovery</h2>
+        <section class="hero home-hero">
+          <div class="hero-copy">
+            <span class="pill"><span class="status-dot"></span> YOUR START PAGE</span>
+            <h2>Welcome to<br><span>your space.</span></h2>
+            <p>Your internet, your shortcuts, your setup.</p>
           </div>
-          <a href="https://www.roblox.com/games" target="_blank" rel="noopener">Browse all ↗</a>
-        </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="orb orb-one"></div>
+            <div class="orb orb-two"></div>
+            <span data-icon="sparkles"></span>
+          </div>
+        </section>
 
-        <div class="game-grid">
-          <a class="game-card" href="https://www.roblox.com/search/experiences?keyword=Dandys%20World" target="_blank" rel="noopener">
-            <div class="game-art art-dandy"><span>DW</span></div>
-            <div class="game-info">
-              <h3>Dandy's World</h3>
-              <p>Explore the experience</p>
-            </div>
-            <span class="card-arrow">↗</span>
-          </a>
-
-          <a class="game-card" href="https://www.roblox.com/search/experiences?keyword=RIVALS" target="_blank" rel="noopener">
-            <div class="game-art art-rivals"><span>RIVALS</span></div>
-            <div class="game-info">
-              <h3>RIVALS</h3>
-              <p>Find the experience</p>
-            </div>
-            <span class="card-arrow">↗</span>
-          </a>
-
-          <a class="game-card" href="https://www.roblox.com/search/experiences?keyword=Brookhaven" target="_blank" rel="noopener">
-            <div class="game-art art-brookhaven"><span>BH</span></div>
-            <div class="game-info">
-              <h3>Brookhaven</h3>
-              <p>Find the experience</p>
-            </div>
-            <span class="card-arrow">↗</span>
-          </a>
-
-          <a class="game-card" href="https://www.roblox.com/search/experiences?keyword=DOORS" target="_blank" rel="noopener">
-            <div class="game-art art-doors"><span>DOORS</span></div>
-            <div class="game-info">
-              <h3>DOORS</h3>
-              <p>Find the experience</p>
-            </div>
-            <span class="card-arrow">↗</span>
-          </a>
-        </div>
-      </section>
-
-      <section class="dashboard-section">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">YOUR ACCOUNT</p>
-            <h2>More Roblox</h2>
+            <h2>Your widgets</h2>
+            <p>Make this space yours.</p>
+          </div>
+          <button class="text-button" data-action="widgets">
+            <span data-icon="plus"></span> Add widget
+          </button>
+        </div>
+
+        <div class="widget-grid" id="homeWidgets"></div>
+
+        <div class="section-heading">
+          <div>
+            <h2>Quick links</h2>
+            <p>Your usual destinations.</p>
           </div>
         </div>
 
-        <div class="shortcut-grid">
-          <a href="https://www.roblox.com/users/profile" target="_blank" rel="noopener">
-            <span class="shortcut-icon">👤</span>
-            <span><strong>Profile</strong><small>View your Roblox profile</small></span>
-            <span class="card-arrow">↗</span>
+        <div class="quick-links">
+          <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">
+            <span data-icon="youtube"></span><span>YouTube</span><span data-icon="arrow-up-right"></span>
           </a>
-
-          <a href="https://www.roblox.com/users/friends" target="_blank" rel="noopener">
-            <span class="shortcut-icon">👥</span>
-            <span><strong>Friends</strong><small>Visit your friends page</small></span>
-            <span class="card-arrow">↗</span>
+          <a href="https://discord.com/app" target="_blank" rel="noopener noreferrer">
+            <span data-icon="messages-square"></span><span>Discord</span><span data-icon="arrow-up-right"></span>
           </a>
-
-          <a href="https://www.roblox.com/my/avatar" target="_blank" rel="noopener">
-            <span class="shortcut-icon">🎨</span>
-            <span><strong>Avatar</strong><small>Customize your character</small></span>
-            <span class="card-arrow">↗</span>
+          <a href="https://www.google.com/" target="_blank" rel="noopener noreferrer">
+            <span data-icon="globe"></span><span>Google</span><span data-icon="arrow-up-right"></span>
           </a>
-
-          <a href="https://www.roblox.com/catalog" target="_blank" rel="noopener">
-            <span class="shortcut-icon">🛍️</span>
-            <span><strong>Marketplace</strong><small>Explore avatar items</small></span>
-            <span class="card-arrow">↗</span>
+          <a href="https://duckduckgo.com/" target="_blank" rel="noopener noreferrer">
+            <span data-icon="search"></span><span>DuckDuckGo</span><span data-icon="arrow-up-right"></span>
           </a>
         </div>
       </section>
 
-      <footer class="dashboard-footer">
-        <span>Made for your StartPhase experience.</span>
-        <a href="https://www.roblox.com/" target="_blank" rel="noopener">Official Roblox ↗</a>
+      <section class="mode-view" id="robloxView">
+        <form class="search" id="robloxSearch">
+          <span data-icon="search"></span>
+          <input id="gameQuery" type="search" placeholder="Search Roblox experiences..." aria-label="Search Roblox experiences" autocomplete="off">
+          <button type="submit" aria-label="Search Roblox">
+            <span data-icon="arrow-up-right"></span>
+          </button>
+        </form>
+
+        <section class="hero roblox-hero">
+          <div class="hero-copy">
+            <span class="pill"><span class="status-dot"></span> ROBLOX MODE</span>
+            <h2>Your next<br><span>adventure.</span></h2>
+            <p>Discover experiences and launch them through your Roblox client.</p>
+            <button class="primary-button" id="discoverButton">
+              <span data-icon="compass"></span> Discover experiences
+            </button>
+          </div>
+          <div class="hero-art game-art" aria-hidden="true">
+            <div class="game-cube cube-one"></div>
+            <div class="game-cube cube-two"></div>
+            <span data-icon="gamepad-2"></span>
+          </div>
+        </section>
+
+        <div class="section-heading">
+          <div>
+            <h2>Discover</h2>
+            <p id="discoverDescription">Explore Roblox experiences.</p>
+          </div>
+          <button class="text-button" id="clearGames">Reset results</button>
+        </div>
+
+        <div class="game-grid" id="gameGrid">
+          <div class="empty-state">
+            <span data-icon="search"></span>
+            <h3>Find your next game</h3>
+            <p>Search for an experience to see available results.</p>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div>
+            <h2>Your widgets</h2>
+            <p>Separate from your StartPhase home layout.</p>
+          </div>
+          <button class="text-button" data-action="widgets">
+            <span data-icon="plus"></span> Add widget
+          </button>
+        </div>
+
+        <div class="widget-grid" id="robloxWidgets"></div>
+      </section>
+
+      <footer class="footer">
+        <span>StartPhase</span>
+        <span>Made for your space.</span>
       </footer>
     </section>
   </main>
+
+  <dialog id="widgetDialog" class="dialog">
+    <form method="dialog" class="dialog-header">
+      <div>
+        <p class="eyebrow">PERSONALIZATION</p>
+        <h2>Add a widget</h2>
+      </div>
+      <button class="icon-button" aria-label="Close">
+        <span data-icon="x"></span>
+      </button>
+    </form>
+    <p class="dialog-description">Choose a widget for your current mode.</p>
+    <div class="widget-picker">
+      <button class="picker-item" data-widget="clock">
+        <span data-icon="clock"></span><span><strong>Clock & date</strong><small>Local time and date</small></span>
+      </button>
+      <button class="picker-item" data-widget="notes">
+        <span data-icon="notebook-pen"></span><span><strong>Quick notes</strong><small>A small editable note</small></span>
+      </button>
+      <button class="picker-item" data-widget="links">
+        <span data-icon="link"></span><span><strong>Website shortcuts</strong><small>Quick access to websites</small></span>
+      </button>
+      <button class="picker-item" data-widget="featured">
+        <span data-icon="star"></span><span><strong>Featured</strong><small>A customizable highlight</small></span>
+      </button>
+    </div>
+  </dialog>
+
+  <dialog id="settingsDialog" class="dialog">
+    <form method="dialog" class="dialog-header">
+      <div>
+        <p class="eyebrow">PREFERENCES</p>
+        <h2>Settings</h2>
+      </div>
+      <button class="icon-button" aria-label="Close">
+        <span data-icon="x"></span>
+      </button>
+    </form>
+    <label class="setting-row">
+      <span><strong>Compact layout</strong><small>Use tighter spacing between widgets.</small></span>
+      <input type="checkbox" id="compactToggle">
+    </label>
+    <label class="setting-row">
+      <span><strong>Confirm game launch</strong><small>Ask before opening a Roblox experience.</small></span>
+      <input type="checkbox" id="confirmToggle" checked>
+    </label>
+    <button class="primary-button full-button" id="resetLayout">Reset widget layouts</button>
+  </dialog>
+
+  <dialog id="launchDialog" class="dialog">
+    <form method="dialog" class="dialog-header">
+      <div>
+        <p class="eyebrow">ROBLOX LAUNCH</p>
+        <h2>Ready to play?</h2>
+      </div>
+      <button class="icon-button" aria-label="Close">
+        <span data-icon="x"></span>
+      </button>
+    </form>
+    <p id="launchMessage" class="dialog-description">Open this experience in your Roblox client?</p>
+    <div class="dialog-actions">
+      <button class="secondary-button" id="cancelLaunch">Cancel</button>
+      <button class="primary-button" id="confirmLaunch">Join experience</button>
+    </div>
+  </dialog>
+
+  <dialog id="aboutDialog" class="dialog">
+    <form method="dialog" class="dialog-header">
+      <div>
+        <p class="eyebrow">ABOUT</p>
+        <h2>StartPhase</h2>
+      </div>
+      <button class="icon-button" aria-label="Close">
+        <span data-icon="x"></span>
+      </button>
+    </form>
+    <p class="dialog-description">Your customizable start page and Roblox experience dashboard.</p>
+    <p class="muted">Public Roblox search depends on the availability of Roblox's web APIs. Account connection and private account data are not enabled in this version.</p>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="script.js"></script>
 </body>
