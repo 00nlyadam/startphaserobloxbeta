@@ -1,455 +1,295 @@
+const iconBase = "https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/";
+const iconNames = [...new Set([...document.querySelectorAll("[data-icon]")].map((element) => element.dataset.icon))];
 
-const iconBase = "https://cdn.jsdelivr.net/npm/lucide-static@1.52.0/icons/";
-const iconFallback = "https://cdn.jsdelivr.net/npm/lucide-static@1.52.0/icons/circle-help.svg";
-
-function iconMarkup(name) {
-  const safeName = /^[a-z0-9-]+$/.test(name) ? name : "circle-help";
-  const url = iconBase + safeName + ".svg";
-  return `<img src="${url}" alt="" aria-hidden="true" loading="lazy" onerror="this.onerror=null;this.src='${iconFallback}'">`;
-}
-
-document.querySelectorAll("[data-icon]").forEach((element) => {
-  element.innerHTML = iconMarkup(element.dataset.icon);
+iconNames.forEach((name) => {
+  document.querySelectorAll(`[data-icon="${name}"]`).forEach((element) => {
+    const image = document.createElement("img");
+    image.src = `${iconBase}${encodeURIComponent(name)}.svg`;
+    image.alt = "";
+    image.setAttribute("aria-hidden", "true");
+    image.addEventListener("error", () => image.remove(), { once: true });
+    element.append(image);
+  });
 });
 
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
-
-const views = {
-  home: $("#homeView"),
-  roblox: $("#robloxView")
-};
-
-const modeInfo = {
-  home: { label: "YOUR SPACE", title: "StartPhase" },
-  roblox: { label: "EXPERIENCE HUB", title: "Roblox" }
-};
-
-let currentMode = "home";
+const homeView = document.querySelector("#homeView");
+const robloxView = document.querySelector("#robloxView");
+const widgetDialog = document.querySelector("#widgetDialog");
+const settingsDialog = document.querySelector("#settingsDialog");
+const aboutDialog = document.querySelector("#aboutDialog");
+const launchDialog = document.querySelector("#launchDialog");
+const toast = document.querySelector("#toast");
+const storageKey = "startphase-state-v1";
+const initialState = { mode: "home", widgets: { home: [], roblox: [] }, compact: false, confirmLaunch: true };
+let state;
 let pendingPlaceId = null;
-let pendingGameName = "";
-let toastTimeout;
-let searchSequence = 0;
+let toastTimer;
 
-const defaultWidgets = {
-  home: ["clock", "links", "notes"],
-  roblox: ["featured", "clock"]
-};
-
-function loadJSON(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
+try {
+  state = { ...initialState, ...JSON.parse(localStorage.getItem(storageKey) || "{}") };
+  state.widgets = { ...initialState.widgets, ...(state.widgets || {}) };
+} catch {
+  state = { ...initialState, widgets: { home: [], roblox: [] } };
 }
 
-const layouts = {
-  home: loadJSON("startphase-home-widgets", defaultWidgets.home),
-  roblox: loadJSON("startphase-roblox-widgets", defaultWidgets.roblox)
-};
-
-const widgetData = loadJSON("startphase-widget-data", {});
-const preferences = {
-  compact: localStorage.getItem("startphase-compact") === "true",
-  confirm: localStorage.getItem("startphase-confirm") !== "false"
-};
-
-function saveLayouts() {
-  localStorage.setItem("startphase-home-widgets", JSON.stringify(layouts.home));
-  localStorage.setItem("startphase-roblox-widgets", JSON.stringify(layouts.roblox));
+function saveState() {
+  localStorage.setItem(storageKey, JSON.stringify(state));
 }
 
-function saveWidgetData() {
-  localStorage.setItem("startphase-widget-data", JSON.stringify(widgetData));
+function notify(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[character]);
-}
-
-function toast(message) {
-  const element = $("#toast");
-  element.textContent = message;
-  element.classList.add("show");
-  clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => element.classList.remove("show"), 3000);
+function setMode(mode) {
+  state.mode = mode === "roblox" ? "roblox" : "home";
+  const isRoblox = state.mode === "roblox";
+  homeView.classList.toggle("active", !isRoblox);
+  robloxView.classList.toggle("active", isRoblox);
+  document.querySelector("#pageTitle").textContent = isRoblox ? "Roblox" : "StartPhase";
+  document.querySelector("#modeLabel").textContent = isRoblox ? "ROBLOX MODE" : "YOUR SPACE";
+  document.querySelectorAll("[data-mode]").forEach((button) => button.classList.toggle("active", button.dataset.mode === state.mode));
+  saveState();
 }
 
 function updateClock() {
   const now = new Date();
-  $("#clockTime").textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-  $("#clockDate").textContent = now.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
-    day: "numeric"
-  });
+  document.querySelector("#clockTime").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.querySelector("#clockDate").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
 }
 
-function setMode(mode) {
-  if (!views[mode]) return;
-
-  currentMode = mode;
-
-  Object.entries(views).forEach(([key, view]) => {
-    view.classList.toggle("active", key === mode);
-  });
-
-  $$("[data-mode]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.mode === mode);
-  });
-
-  $("#modeLabel").textContent = modeInfo[mode].label;
-  $("#pageTitle").textContent = modeInfo[mode].title;
-  document.title = mode === "home" ? "StartPhase" : "Roblox | StartPhase";
-
-  renderWidgets(mode);
-}
-
-function widgetMarkup(type, index, mode) {
-  const data = widgetData[`${mode}:${type}:${index}`] || {};
-  const removeButton = `<button class="widget-remove" data-remove-widget="${index}" aria-label="Remove widget">${iconMarkup("x")}</button>`;
-
-  if (type === "clock") {
-    return `<article class="widget">
-      ${removeButton}
-      <div class="widget-icon">${iconMarkup("clock")}</div>
-      <h3>Local time</h3>
-      <p class="clock-widget-time">${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</p>
-      <p>${new Date().toLocaleDateString([], {weekday:"long",month:"long",day:"numeric"})}</p>
-    </article>`;
-  }
-
-  if (type === "notes") {
-    return `<article class="widget">
-      ${removeButton}
-      <div class="widget-icon">${iconMarkup("notebook-pen")}</div>
-      <h3>Quick notes</h3>
-      <textarea data-note="${mode}:${index}" placeholder="Write something...">${escapeHTML(data.note || "")}</textarea>
-    </article>`;
-  }
-
-  if (type === "links") {
-    return `<article class="widget">
-      ${removeButton}
-      <div class="widget-icon">${iconMarkup("link")}</div>
-      <h3>Website shortcuts</h3>
-      <p><a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">YouTube</a> · <a href="https://discord.com/app" target="_blank" rel="noopener noreferrer">Discord</a></p>
-      <p><a href="https://duckduckgo.com/" target="_blank" rel="noopener noreferrer">DuckDuckGo</a></p>
-    </article>`;
-  }
-
-  if (type === "featured") {
-    return `<article class="widget">
-      ${removeButton}
-      <div class="widget-icon">${iconMarkup("star")}</div>
-      <h3>Featured</h3>
-      <textarea data-featured="${mode}:${index}" placeholder="Write a title or reminder...">${escapeHTML(data.title || "Your next adventure")}</textarea>
-    </article>`;
-  }
-
-  return "";
-}
+const widgetInfo = {
+  clock: { title: "Clock & date", icon: "clock" },
+  notes: { title: "Quick notes", icon: "notebook-pen" },
+  links: { title: "Website shortcuts", icon: "link" },
+  featured: { title: "Featured", icon: "star" }
+};
 
 function renderWidgets(mode) {
-  const container = mode === "home" ? $("#homeWidgets") : $("#robloxWidgets");
-  container.innerHTML = layouts[mode]
-    .map((type, index) => widgetMarkup(type, index, mode))
-    .join("");
-
-  container.querySelectorAll("[data-remove-widget]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const index = Number(button.dataset.removeWidget);
-      layouts[mode].splice(index, 1);
-      saveLayouts();
-      renderWidgets(mode);
-      toast("Widget removed.");
-    });
-  });
-
-  container.querySelectorAll("[data-note]").forEach((textarea) => {
-    textarea.addEventListener("input", () => {
-      const key = `${mode}:notes:${textarea.dataset.note.split(":").pop()}`;
-      widgetData[key] = { ...widgetData[key], note: textarea.value };
-      saveWidgetData();
-    });
-  });
-
-  container.querySelectorAll("[data-featured]").forEach((textarea) => {
-    textarea.addEventListener("input", () => {
-      const key = `${mode}:featured:${textarea.dataset.featured.split(":").pop()}`;
-      widgetData[key] = { ...widgetData[key], title: textarea.value };
-      saveWidgetData();
-    });
-  });
-}
-
-function openWidgetPicker() {
-  $("#widgetDialog").showModal();
-}
-
-$$("[data-mode]").forEach((button) => {
-  button.addEventListener("click", () => setMode(button.dataset.mode));
-});
-
-$$("[data-action]").forEach((button) => {
-  button.addEventListener("click", () => {
-    const action = button.dataset.action;
-
-    if (action === "widgets") openWidgetPicker();
-    if (action === "settings") $("#settingsDialog").showModal();
-    if (action === "about") $("#aboutDialog").showModal();
-  });
-});
-
-$$("[data-widget]").forEach((button) => {
-  button.addEventListener("click", () => {
-    const type = button.dataset.widget;
-    const layout = layouts[currentMode];
-
-    if (layout.length >= 9) {
-      toast("This layout has reached the 9-widget limit.");
-      return;
+  const container = document.querySelector(mode === "roblox" ? "#robloxWidgets" : "#homeWidgets");
+  container.replaceChildren();
+  state.widgets[mode].forEach((widget, index) => {
+    const info = widgetInfo[widget.type];
+    if (!info) return;
+    const card = document.createElement("article");
+    card.className = "widget";
+    const remove = document.createElement("button");
+    remove.className = "widget-remove";
+    remove.type = "button";
+    remove.setAttribute("aria-label", `Remove ${info.title}`);
+    remove.dataset.removeWidget = String(index);
+    const removeIcon = document.createElement("img");
+    removeIcon.src = `${iconBase}x.svg`;
+    removeIcon.alt = "";
+    remove.append(removeIcon);
+    const icon = document.createElement("span");
+    icon.className = "widget-icon";
+    const iconImage = document.createElement("img");
+    iconImage.src = `${iconBase}${info.icon}.svg`;
+    iconImage.alt = "";
+    icon.append(iconImage);
+    const heading = document.createElement("h3");
+    heading.textContent = info.title;
+    card.append(remove, icon, heading);
+    if (widget.type === "clock") {
+      const detail = document.createElement("p");
+      detail.textContent = new Date().toLocaleString([], { weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      card.append(detail);
+    } else if (widget.type === "notes") {
+      const note = document.createElement("textarea");
+      note.placeholder = "Write a note...";
+      note.value = widget.text || "";
+      note.setAttribute("aria-label", "Quick note");
+      note.addEventListener("input", () => {
+        widget.text = note.value;
+        saveState();
+      });
+      card.append(note);
+    } else if (widget.type === "links") {
+      const link = document.createElement("a");
+      link.href = "https://www.google.com/";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Open Google";
+      card.append(link);
+    } else {
+      const detail = document.createElement("p");
+      detail.textContent = mode === "roblox" ? "Your Roblox space, ready for a new adventure." : "Your space, set up just the way you like it.";
+      card.append(detail);
     }
-
-    const index = layout.filter((item) => item === type).length;
-    layout.push(type);
-    saveLayouts();
-    renderWidgets(currentMode);
-    $("#widgetDialog").close();
-    toast("Widget added to " + (currentMode === "home" ? "StartPhase" : "Roblox") + " mode.");
+    container.append(card);
   });
+}
+
+function renderAllWidgets() {
+  renderWidgets("home");
+  renderWidgets("roblox");
+}
+
+document.addEventListener("click", (event) => {
+  const modeButton = event.target.closest("[data-mode]");
+  if (modeButton) {
+    event.preventDefault();
+    setMode(modeButton.dataset.mode);
+    return;
+  }
+  const actionButton = event.target.closest("[data-action]");
+  if (actionButton) {
+    const dialogs = { widgets: widgetDialog, settings: settingsDialog, about: aboutDialog };
+    dialogs[actionButton.dataset.action]?.showModal();
+    return;
+  }
+  const picker = event.target.closest("[data-widget]");
+  if (picker) {
+    const type = picker.dataset.widget;
+    if (widgetInfo[type]) {
+      state.widgets[state.mode].push({ type, text: "" });
+      saveState();
+      renderWidgets(state.mode);
+      widgetDialog.close();
+      notify(`${widgetInfo[type].title} added to ${state.mode === "roblox" ? "Roblox" : "StartPhase"}.`);
+    }
+    return;
+  }
+  const removeButton = event.target.closest("[data-remove-widget]");
+  if (removeButton) {
+    state.widgets[state.mode].splice(Number(removeButton.dataset.removeWidget), 1);
+    saveState();
+    renderWidgets(state.mode);
+  }
 });
 
-$("#webSearch").addEventListener("submit", (event) => {
+document.querySelector("#webSearch").addEventListener("submit", (event) => {
   event.preventDefault();
-  const query = $("#webQuery").value.trim();
+  const query = document.querySelector("#webQuery").value.trim();
+  if (query) window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, "_blank", "noopener,noreferrer");
+});
+
+function showEmptyState(title, message) {
+  const grid = document.querySelector("#gameGrid");
+  grid.replaceChildren();
+  const empty = document.createElement("div");
+  empty.className = "empty-state";
+  empty.innerHTML = '<span data-icon="search"></span>';
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  const description = document.createElement("p");
+  description.textContent = message;
+  empty.append(heading, description);
+  grid.append(empty);
+  const image = document.createElement("img");
+  image.src = `${iconBase}search.svg`;
+  image.alt = "";
+  empty.querySelector("[data-icon]").append(image);
+}
+
+async function searchGames(query) {
   if (!query) return;
-  location.href = "https://duckduckgo.com/?q=" + encodeURIComponent(query);
-});
-
-function renderEmptyGames(title, message) {
-  $("#gameGrid").innerHTML = `<div class="empty-state">
-    ${iconMarkup("search")}
-    <h3>${escapeHTML(title)}</h3>
-    <p>${escapeHTML(message)}</p>
-  </div>`;
-}
-
-function renderGames(games, query) {
-  const validGames = games.filter((game) => game && game.id && game.name);
-
-  if (!validGames.length) {
-    renderEmptyGames("No experiences found", "Try another search, or check again later.");
-    return;
-  }
-
-  $("#gameGrid").innerHTML = validGames.map((game) => {
-    const placeId = String(game.rootPlaceId || game.placeId || game.id);
-    const creator = game.creator?.name || "Roblox creator";
-    const image = game.imageUrl || "";
-    const description = game.description || creator;
-
-    return `<article class="game-card">
-      <img src="${escapeHTML(image)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div class="game-card-body">
-        <h3>${escapeHTML(game.name)}</h3>
-        <p>${escapeHTML(description.slice(0, 90))}</p>
-        <button class="primary-button join-game" data-place-id="${escapeHTML(placeId)}" data-game-name="${escapeHTML(game.name)}">
-          ${iconMarkup("play")} Join
-        </button>
-      </div>
-    </article>`;
-  }).join("");
-
-  $$(".join-game").forEach((button) => {
-    button.addEventListener("click", () => {
-      requestJoin(button.dataset.placeId, button.dataset.gameName);
-    });
-  });
-
-  $("#discoverDescription").textContent = `Results for "${query}"`;
-}
-
-async function searchRoblox(query) {
-  const sequence = ++searchSequence;
-  $("#discoverDescription").textContent = "Searching Roblox experiences...";
-  renderEmptyGames("Searching...", "Fetching available public experience results.");
-
+  const grid = document.querySelector("#gameGrid");
+  document.querySelector("#discoverDescription").textContent = `Searching Roblox for “${query}”…`;
+  grid.replaceChildren();
   try {
-    const response = await fetch(
-      "https://apis.roblox.com/search-api/omni-search?searchQuery=" +
-      encodeURIComponent(query) +
-      "&pageToken=&sessionId="
-    );
-
-    if (!response.ok) throw new Error("Search request failed");
-
+    const response = await fetch(`https://apis.roblox.com/search-api/omni-search?searchQuery=${encodeURIComponent(query)}&sessionId=startphase&pageType=game`);
+    if (!response.ok) throw new Error("Roblox search is unavailable.");
     const result = await response.json();
-    if (sequence !== searchSequence) return;
-
-    const sections = result.searchResults || [];
-    const games = sections.flatMap((section) => section.contents || [])
-      .filter((item) => item.universeId || item.rootPlaceId || item.placeId)
-      .map((item) => ({
-        id: item.universeId || item.rootPlaceId || item.placeId,
-        rootPlaceId: item.rootPlaceId || item.placeId,
-        name: item.name || item.title,
-        description: item.description || "",
-        creator: item.creator || item.author,
-        imageUrl: item.thumbnail?.url || item.imageUrl || ""
-      }));
-
-    const uniqueGames = [...new Map(games.map((game) => [game.id, game])).values()];
-
-    if (!uniqueGames.length) {
-      const fallback = await searchExperiencesFallback(query);
-      if (sequence === searchSequence) renderGames(fallback, query);
+    const games = (result.searchResults || []).flatMap((group) => group.contents || []).slice(0, 12);
+    if (!games.length) {
+      showEmptyState("No experiences found", "Try a different search.");
+      document.querySelector("#discoverDescription").textContent = "No matching experiences.";
       return;
     }
-
-    const enrichedGames = await Promise.all(uniqueGames.slice(0, 12).map(async (game) => {
-      if (game.imageUrl) return game;
-
-      try {
-        const thumbnailResponse = await fetch(
-          "https://thumbnails.roblox.com/v1/games/icons?universeIds=" +
-          encodeURIComponent(game.id) +
-          "&returnPolicy=PlaceHolder&size=256x256&format=Png&isCircular=false"
-        );
-
-        if (!thumbnailResponse.ok) return game;
-
-        const thumbnailData = await thumbnailResponse.json();
-        return {
-          ...game,
-          imageUrl: thumbnailData.data?.[0]?.imageUrl || ""
-        };
-      } catch {
-        return game;
+    const thumbnailIds = games.map((game) => game.universeId).filter(Boolean).join(",");
+    let thumbnails = {};
+    try {
+      const imagesResponse = await fetch(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${thumbnailIds}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false`);
+      if (imagesResponse.ok) {
+        const images = await imagesResponse.json();
+        thumbnails = Object.fromEntries((images.data || []).map((image) => [image.targetId, image.imageUrl]));
       }
-    }));
-
-    if (sequence === searchSequence) renderGames(enrichedGames, query);
+    } catch {}
+    grid.replaceChildren();
+    games.forEach((game) => {
+      const card = document.createElement("article");
+      card.className = "game-card";
+      const thumbnail = document.createElement("img");
+      thumbnail.src = thumbnails[game.universeId] || "https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/gamepad-2.svg";
+      thumbnail.alt = "";
+      const body = document.createElement("div");
+      body.className = "game-card-body";
+      const title = document.createElement("h3");
+      title.textContent = game.name || "Roblox experience";
+      const detail = document.createElement("p");
+      detail.textContent = `${Number(game.playerCount || 0).toLocaleString()} playing`;
+      const launch = document.createElement("button");
+      launch.type = "button";
+      launch.className = "primary-button";
+      launch.dataset.placeId = String(game.rootPlaceId || "");
+      launch.textContent = "Play";
+      body.append(title, detail, launch);
+      card.append(thumbnail, body);
+      grid.append(card);
+    });
+    document.querySelector("#discoverDescription").textContent = `${games.length} experiences found.`;
   } catch {
-    if (sequence !== searchSequence) return;
-    const fallback = await searchExperiencesFallback(query);
-    if (sequence === searchSequence) renderGames(fallback, query);
+    showEmptyState("Search unavailable", "Roblox search could not be reached. Try again in a moment.");
+    const fallback = document.createElement("a");
+    fallback.className = "primary-button";
+    fallback.href = `https://www.roblox.com/search/experiences?keyword=${encodeURIComponent(query)}`;
+    fallback.target = "_blank";
+    fallback.rel = "noopener noreferrer";
+    fallback.textContent = "Search on Roblox";
+    document.querySelector("#gameGrid .empty-state").append(fallback);
+    document.querySelector("#discoverDescription").textContent = "Roblox search is temporarily unavailable.";
   }
 }
 
-async function searchExperiencesFallback(query) {
-  try {
-    const response = await fetch(
-      "https://games.roblox.com/v1/games/list?model.keyword=" +
-      encodeURIComponent(query) +
-      "&model.maxRows=12&model.startRow=0"
-    );
-
-    if (!response.ok) return [];
-
-    const result = await response.json();
-    return (result.games || []).map((game) => ({
-      id: game.universeId || game.id,
-      rootPlaceId: game.placeId,
-      name: game.name,
-      description: game.gameDescription || "",
-      creator: { name: game.creatorName || "Roblox creator" },
-      imageUrl: ""
-    }));
-  } catch {
-    return [];
-  }
-}
-
-$("#robloxSearch").addEventListener("submit", (event) => {
+document.querySelector("#robloxSearch").addEventListener("submit", (event) => {
   event.preventDefault();
-  const query = $("#gameQuery").value.trim();
-  if (query) searchRoblox(query);
+  searchGames(document.querySelector("#gameQuery").value.trim());
+});
+document.querySelector("#discoverButton").addEventListener("click", () => document.querySelector("#gameQuery").focus());
+document.querySelector("#clearGames").addEventListener("click", () => {
+  document.querySelector("#gameQuery").value = "";
+  document.querySelector("#discoverDescription").textContent = "Explore Roblox experiences.";
+  showEmptyState("Find your next game", "Search for an experience to see available results.");
 });
 
-$("#discoverButton").addEventListener("click", () => {
-  $("#gameQuery").focus();
-  $("#gameQuery").scrollIntoView({ behavior: "smooth", block: "center" });
+document.querySelector("#gameGrid").addEventListener("click", (event) => {
+  const launch = event.target.closest("[data-place-id]");
+  if (!launch) return;
+  pendingPlaceId = launch.dataset.placeId;
+  if (state.confirmLaunch) launchDialog.showModal();
+  else window.location.href = `roblox://experiences/start?placeId=${encodeURIComponent(pendingPlaceId)}`;
+});
+document.querySelector("#cancelLaunch").addEventListener("click", () => launchDialog.close());
+document.querySelector("#confirmLaunch").addEventListener("click", () => {
+  if (pendingPlaceId) window.location.href = `roblox://experiences/start?placeId=${encodeURIComponent(pendingPlaceId)}`;
+  launchDialog.close();
 });
 
-$("#clearGames").addEventListener("click", () => {
-  searchSequence++;
-  $("#gameQuery").value = "";
-  $("#discoverDescription").textContent = "Explore Roblox experiences.";
-  renderEmptyGames("Find your next game", "Search for an experience to see available results.");
+document.querySelector("#compactToggle").checked = Boolean(state.compact);
+document.body.classList.toggle("compact", Boolean(state.compact));
+document.querySelector("#compactToggle").addEventListener("change", (event) => {
+  state.compact = event.target.checked;
+  document.body.classList.toggle("compact", state.compact);
+  saveState();
 });
-
-function requestJoin(placeId, gameName) {
-  if (!/^\d+$/.test(String(placeId))) {
-    toast("This experience doesn't have a valid Place ID.");
-    return;
-  }
-
-  pendingPlaceId = String(placeId);
-  pendingGameName = gameName || "this experience";
-
-  if (preferences.confirm) {
-    $("#launchMessage").textContent = `Open "${pendingGameName}" in your installed Roblox client?`;
-    $("#launchDialog").showModal();
-  } else {
-    launchGame();
-  }
-}
-
-function launchGame() {
-  if (!pendingPlaceId) return;
-
-  const uri = `roblox://experiences/start?placeId=${encodeURIComponent(pendingPlaceId)}`;
-  $("#launchDialog").close();
-  window.location.href = uri;
-  toast("If prompted, allow your browser to open Roblox. BetterSTRAP must be registered to handle the launch.");
-  pendingPlaceId = null;
-}
-
-$("#confirmLaunch").addEventListener("click", launchGame);
-
-$("#cancelLaunch").addEventListener("click", () => {
-  $("#launchDialog").close();
-  pendingPlaceId = null;
+document.querySelector("#confirmToggle").checked = state.confirmLaunch !== false;
+document.querySelector("#confirmToggle").addEventListener("change", (event) => {
+  state.confirmLaunch = event.target.checked;
+  saveState();
 });
-
-$("#compactToggle").checked = preferences.compact;
-$("#confirmToggle").checked = preferences.confirm;
-document.body.classList.toggle("compact", preferences.compact);
-
-$("#compactToggle").addEventListener("change", (event) => {
-  preferences.compact = event.target.checked;
-  localStorage.setItem("startphase-compact", String(preferences.compact));
-  document.body.classList.toggle("compact", preferences.compact);
-});
-
-$("#confirmToggle").addEventListener("change", (event) => {
-  preferences.confirm = event.target.checked;
-  localStorage.setItem("startphase-confirm", String(preferences.confirm));
-});
-
-$("#resetLayout").addEventListener("click", () => {
-  layouts.home = [...defaultWidgets.home];
-  layouts.roblox = [...defaultWidgets.roblox];
-  saveLayouts();
-  renderWidgets(currentMode);
-  $("#settingsDialog").close();
-  toast("Both layouts have been reset.");
+document.querySelector("#resetLayout").addEventListener("click", () => {
+  state.widgets = { home: [], roblox: [] };
+  saveState();
+  renderAllWidgets();
+  settingsDialog.close();
+  notify("Both widget layouts have been reset.");
 });
 
 updateClock();
-setInterval(updateClock, 1000);
-renderWidgets("home");
-renderWidgets("roblox");
-setMode("home");
+setInterval(updateClock, 30000);
+renderAllWidgets();
+setMode(state.mode);

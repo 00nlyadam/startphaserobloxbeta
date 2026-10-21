@@ -81,8 +81,8 @@ a {
 }
 
 .brand img {
-  width: 95px;
-  max-width: none;
+  width: 60px;
+  max-width: 100%;
   height: auto;
 }
 
